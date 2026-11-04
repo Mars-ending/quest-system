@@ -174,7 +174,7 @@ def _page_quest(msg=""):
     evals = ""
     try:
         for fn in sorted(os.listdir(QUEST_EVAL_DIR))[-3:][::-1]:
-            evals += "<li><a href=\"/quest/eval/%s\">%s</a></li>" % (quote(fn), esc(fn))
+            evals += "<li><a href=\"eval/%s\">%s</a></li>" % (quote(fn), esc(fn))
     except Exception:
         pass
     body = """
@@ -271,7 +271,7 @@ def _page_form(kind, qid, err=""):
 # 门户侧需要提供：check_auth / shell / esc / _unauth / _send / H（handler 类）
 # 接法见 web/README.md；下面假设这些名字已存在。
 
-def _q_redirect(self, to="/quest"):
+def _q_redirect(self, to="./"):
     self.send_response(302)
     self.send_header("Location", to)
     self.send_header("Content-Length", "0")
