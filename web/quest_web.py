@@ -183,12 +183,12 @@ def _page_quest(msg=""):
 %s
 <div class="panel"><h2>当前任务</h2><pre style="white-space:pre-wrap;font-size:13px">%s</pre>
 <p>
- <a class="btn" href="/quest/do?op=timer_start&q=%s">▶ 开始/继续计时</a>
- <a class="btn" href="/quest/do?op=timer_pause&q=%s">⏸ 暂停</a>
- <a class="btn" href="/quest/do?op=timer_book&q=%s">⏹ 记账并停止</a>
- <a class="btn" href="/quest/do?op=accept_form&q=%s">📥 交卷</a>
- <a class="btn" href="/quest/do?op=adjust_form&q=%s">🔧 调整题目</a>
- <a class="btn" href="/quest/do?op=eval&q=%s">🔍 请求点评</a>
+ <a class="btn" href="do?op=timer_start&q=%s">▶ 开始/继续计时</a>
+ <a class="btn" href="do?op=timer_pause&q=%s">⏸ 暂停</a>
+ <a class="btn" href="do?op=timer_book&q=%s">⏹ 记账并停止</a>
+ <a class="btn" href="do?op=accept_form&q=%s">📥 交卷</a>
+ <a class="btn" href="do?op=adjust_form&q=%s">🔧 调整题目</a>
+ <a class="btn" href="do?op=eval&q=%s">🔍 请求点评</a>
 </p><div class="sub">计时状态：%s ｜ 完成 %d · 待验收 %d · 跳过 %d ｜ 累计记账 %d 条</div></div>
 <div class="panel"><h2>任务历史</h2><table>
 <tr><th>编号</th><th>题目</th><th>状态</th><th>域</th><th>发出</th><th>用时</th></tr>%s</table></div>
@@ -198,7 +198,7 @@ def _page_quest(msg=""):
        live_id, live_id, live_id, live_id, live_id, live_id, tstat,
        st.get("done", 0), st.get("pending", 0), st.get("skipped", 0), st.get("timer_lines", 0),
        hist, evals or "<li>暂无</li>")
-    return shell("Quest · 每日任务", body, "quest")
+    return shell("Quest · 每日任务", body, "quest", base="../")
 
 
 def _page_timer():
@@ -211,9 +211,9 @@ def _page_timer():
  <div class="k" style="font-size:14px">状态：%s ｜ 任务：%s</div>
  <div class="v" style="font-size:34px" id="clock">%s</div>
  <p>
-  <a class="btn" href="/quest/do?op=timer_start&q=%s">▶ 开始/继续</a>
-  <a class="btn" href="/quest/do?op=timer_pause">⏸ 暂停</a>
-  <a class="btn" href="/quest/do?op=timer_book">⏹ 记账并停止</a>
+  <a class="btn" href="do?op=timer_start&q=%s">▶ 开始/继续</a>
+  <a class="btn" href="do?op=timer_pause">⏸ 暂停</a>
+  <a class="btn" href="do?op=timer_book">⏹ 记账并停止</a>
  </p>
  <div class="empty">专注才计：去干别的先按暂停。记账写进账本头部。</div>
 </div>
@@ -226,7 +226,7 @@ setInterval(tick,1000);tick();
 """ % (status, esc(d.get("label") or "未标注"), "%.2f h" % (el / 3600.0),
        d.get("label") or "", int(el),
        "true" if d.get("op") == "run" else "false", d.get("since") or 0)
-    return shell("计时 · Quest", body, "quest")
+    return shell("计时 · Quest", body, "quest", base="../")
 
 
 def _page_form(kind, qid, err=""):
@@ -234,7 +234,7 @@ def _page_form(kind, qid, err=""):
     if kind == "accept":
         body = e + """
 <h1>交卷 · %s</h1>
-<form method="post" action="/quest/do">
+<form method="post" action="do">
 <input type="hidden" name="op" value="accept"><input type="hidden" name="q" value="%s">
 <div class="panel">
  <p>专注用时（小时）<br><input name="hours" size="8" placeholder="5.5"></p>
@@ -248,7 +248,7 @@ def _page_form(kind, qid, err=""):
     elif kind == "adjust":
         body = e + """
 <h1>调整题目 · %s</h1>
-<form method="post" action="/quest/do">
+<form method="post" action="do">
 <input type="hidden" name="op" value="adjust"><input type="hidden" name="q" value="%s">
 <div class="panel">
  <p>方向<br><select name="dir">
@@ -264,7 +264,7 @@ def _page_form(kind, qid, err=""):
 </div></form>""" % (esc(qid), esc(qid))
     else:
         body = "<h1>未知表单</h1>"
-    return shell("Quest 表单", body, "quest")
+    return shell("Quest 表单", body, "quest", base="../")
 
 
 # ───────────────────────── 路由钩子 ─────────────────────────
@@ -295,6 +295,9 @@ def quest_route_GET(self, path, q):
         self._unauth()
         return True
     if path == "/quest":
+        _q_redirect(self, "quest/")
+        return True
+    if path == "/quest/":
         self._send(200, _page_quest(q.get("msg", [""])[0]).encode("utf-8"),
                    "text/html; charset=utf-8")
     elif path == "/quest/timer":
@@ -303,15 +306,15 @@ def quest_route_GET(self, path, q):
         fn = os.path.basename(unquote(path[len("/quest/eval/"):]))
         real = os.path.realpath(os.path.join(QUEST_EVAL_DIR, fn))
         if not real.startswith(os.path.realpath(QUEST_EVAL_DIR)) or not os.path.isfile(real):
-            self._send(404, shell("404", "没有这份点评").encode("utf-8"),
+            self._send(404, shell("404", "没有这份点评", base="../").encode("utf-8"),
                        "text/html; charset=utf-8")
             return True
         with open(real, encoding="utf-8", errors="replace") as f:
             txt = f.read()
         body = ("<h1>点评 · %s</h1><div class='panel'><pre style='white-space:pre-wrap;"
-                "font-size:13px'>%s</pre></div><p><a href='/quest'>← 返回</a></p>"
+                "font-size:13px'>%s</pre></div><p><a href='../'>← 返回</a></p>"
                 % (esc(fn), esc(txt[:40000])))
-        self._send(200, shell("点评 · Quest", body, "quest").encode("utf-8"),
+        self._send(200, shell("点评 · Quest", body, "quest", base="../").encode("utf-8"),
                    "text/html; charset=utf-8")
     elif path == "/quest/do":
         op = q.get("op", [""])[0]
@@ -323,13 +326,13 @@ def quest_route_GET(self, path, q):
                     d = {"op": "run", "since": time.time(), "acc": d.get("acc", 0),
                          "label": qid or d.get("label", "")}
                     _timer_write(d)
-                return _q_redirect(self, "/quest/timer")
+                return _q_redirect(self, "timer")
             if op == "timer_pause":
                 if d.get("op") == "run":
                     d["acc"] = _timer_elapsed(d)
                     d["op"] = "pause"
                     _timer_write(d)
-                return _q_redirect(self, "/quest/timer")
+                return _q_redirect(self, "timer")
             if op == "timer_book":
                 if d.get("op") == "run":
                     d["acc"] = _timer_elapsed(d)
@@ -338,8 +341,8 @@ def quest_route_GET(self, path, q):
                 if _timer_elapsed(d) > 60:
                     _timer_book(d)
                 _timer_write({"op": "idle", "acc": 0, "since": None, "label": ""})
-                return _q_redirect(self, "/quest?msg=" + quote("已记账并清零"))
-            return _q_redirect(self, "/quest/timer")
+                return _q_redirect(self, "./?msg=" + quote("已记账并清零"))
+            return _q_redirect(self, "timer")
         if op == "accept_form":
             self._send(200, _page_form("accept", qid).encode("utf-8"),
                        "text/html; charset=utf-8")
@@ -352,13 +355,13 @@ def quest_route_GET(self, path, q):
                 qid = blk.splitlines()[0].replace("## ", "").split(" · ")[0] if blk else ""
             if qid:
                 _eval_start(qid)
-                return _q_redirect(self, "/quest?msg=" +
+                return _q_redirect(self, "./?msg=" +
                                    quote("点评已启动：agent 会先跑你的代码，约 2-5 分钟后刷新"))
-            return _q_redirect(self, "/quest")
+            return _q_redirect(self, "./")
         else:
-            return _q_redirect(self, "/quest")
+            return _q_redirect(self, "./")
     else:
-        self._send(404, shell("404", "quest: 没有这个页面").encode("utf-8"),
+        self._send(404, shell("404", "quest: 没有这个页面", base="../").encode("utf-8"),
                    "text/html; charset=utf-8")
     return True
 
@@ -390,12 +393,12 @@ def quest_route_POST(self, path):
                 _eval_start(qid)
             except Exception:
                 pass
-            return _q_redirect(self, "/quest?msg=" + quote("交卷登记成功，点评已启动"))
-        return _q_redirect(self, "/quest?msg=" + quote("登记失败：" + out[:200]))
+            return _q_redirect(self, "./?msg=" + quote("交卷登记成功，点评已启动"))
+        return _q_redirect(self, "./?msg=" + quote("登记失败：" + out[:200]))
     if op == "adjust":
         merged = "；".join(x for x in (form.get("dir", [""])[0].strip(),
                                       form.get("text", [""])[0].strip()) if x) or "（无内容）"
         _, out = _qrun("adjust", merged, qid or None)
         ok = '"adjust' in out
-        return _q_redirect(self, "/quest?msg=" + quote("已登记调整" if ok else "调整失败：" + out[:200]))
-    return _q_redirect(self, "/quest")
+        return _q_redirect(self, "./?msg=" + quote("已登记调整" if ok else "调整失败：" + out[:200]))
+    return _q_redirect(self, "./")
