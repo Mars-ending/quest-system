@@ -1,0 +1,60 @@
+/* quest 可爱主题：追加进门户 shell() 的 <style> 内（f-string 里花括号需双写） */
+
+:root{{
+  --bg:#fdf6fa; --card:#ffffff; --ink:#4a3b45; --muted:#9b8a94;
+  --accent:#e879a0; --accent2:#a78bfa; --ok:#5fc9a0; --warn:#f5b950;
+  --line:#f0dbe7;
+}}
+body{{background:linear-gradient(160deg,#fdf6fa 0%,#f5f0ff 55%,#fdeef3 100%)!important;
+     background-attachment:fixed!important;color:var(--ink)!important;
+     font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif!important;}}
+.wrap{{max-width:860px!important}}
+h1{{color:#d45087!important;font-weight:800!important;letter-spacing:.5px}}
+h1::before{{content:"☘ ";font-size:.85em}}
+h2{{color:#a06ba8!important;font-weight:700!important;font-size:15px!important}}
+h2::before{{content:"✿ ";opacity:.7}}
+.panel,.card{{background:var(--card)!important;border:1.5px solid var(--line)!important;
+     border-radius:18px!important;box-shadow:0 3px 14px rgba(232,121,160,.08)!important;
+     padding:16px 18px!important}}
+.panel h2{{margin-top:0!important}}
+a{{color:#d45087!important}}
+.btn{{display:inline-block!important;background:linear-gradient(135deg,#fda4c4,#e879a0)!important;
+     color:#fff!important;border:none!important;border-radius:999px!important;
+     padding:7px 14px!important;font-size:13px!important;font-weight:600!important;
+     margin:3px 4px 3px 0!important;box-shadow:0 2px 8px rgba(232,121,160,.25)!important;
+     text-decoration:none!important;transition:transform .12s ease, box-shadow .12s ease!important}}
+.btn:hover{{transform:translateY(-2px) scale(1.03)!important;box-shadow:0 5px 14px rgba(232,121,160,.35)!important}}
+.btn:active{{transform:scale(.97)!important}}
+input,textarea,select{{border:1.5px solid var(--line)!important;border-radius:12px!important;
+     padding:8px 10px!important;font-size:14px!important;background:#fffdfe!important;color:var(--ink)!important}}
+input:focus,textarea:focus,select:focus{{outline:none!important;border-color:var(--accent)!important;
+     box-shadow:0 0 0 3px rgba(232,121,160,.15)!important}}
+button[type=submit]{{background:linear-gradient(135deg,#b794f6,#e879a0)!important;color:#fff!important;
+     border:none!important;border-radius:999px!important;padding:9px 22px!important;
+     font-size:14px!important;font-weight:700!important;cursor:pointer!important;
+     box-shadow:0 2px 10px rgba(167,139,250,.3)!important;transition:transform .12s ease!important}}
+button[type=submit]:hover{{transform:translateY(-2px)!important}}
+table{{border-collapse:collapse!important;width:100%!important;font-size:13px!important}}
+th{{color:var(--muted)!important;font-weight:600!important;text-align:left!important;
+   border-bottom:2px solid var(--line)!important;padding:6px 8px!important}}
+td{{border-bottom:1px solid #f7ecf3!important;padding:7px 8px!important}}
+tr:hover td{{background:#fdf2f7!important}}
+.sub{{color:var(--muted)!important;font-size:12px!important}}
+code{{background:#f9eff5!important;border-radius:8px!important;padding:1px 7px!important;
+     color:#c2508f!important;font-size:.92em!important}}
+.empty{{color:var(--muted)!important}}
+/* 题目面板 */
+.qbox{{background:linear-gradient(150deg,#fffdf8,#fdf4fb)!important;
+      border:1.5px dashed #f3c9dd!important;border-radius:16px!important;
+      padding:14px 16px!important;margin-bottom:12px!important}}
+.qbox summary{{cursor:pointer;font-weight:700;color:#c2508f;list-style:none;user-select:none}}
+.qbox summary::-webkit-details-marker{{display:none}}
+.qbox summary::before{{content:"❓ 题目";margin-right:6px}}
+.qbox[open] summary::before{{content:"📖 题目"}}
+.qbox .qfull{{white-space:pre-wrap;font-size:14px;line-height:1.75;margin-top:10px}}
+.qmini{{font-size:13px;color:#6d5a66;margin-top:8px}}
+.badge{{display:inline-block;background:#fce7f1;color:#c2508f;border-radius:999px;
+       padding:2px 10px;font-size:11.5px;font-weight:700;margin-left:6px;vertical-align:middle}}
+.timer-big{{font-size:44px!important;font-weight:800!important;color:#d45087!important;
+       font-variant-numeric:tabular-nums!important;letter-spacing:2px;
+       text-shadow:0 2px 0 #fff, 0 3px 8px rgba(212,80,135,.15)}}

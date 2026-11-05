@@ -66,3 +66,11 @@ H.do_GET, H.do_POST = _q_do_GET, _q_do_POST
 - 只监听 127.0.0.1，对外经 SSH 反向隧道 + nginx Basic 鉴权（与门户同策略）。
 - `/quest/eval/` 查看点评时 `os.path.basename + realpath` 双重夹住，防目录穿越。
 - 点评 agent 以普通用户跑、限时（`QUEST_EVAL_TIMEOUT_S`，当前由进程自然退出约束）。
+
+## 可爱主题与题目面板（2026-11-05）
+
+- `theme.css`：整站美化（粉色系、圆角卡片、胶囊按钮、KaTeX 兼容）。追加进门户外壳
+  `shell()` 的 `<style>` 里——**f-string 内花括号必须双写**（`{{`），否则 NameError。
+- 题目面板 `_qpanel()`：计时页与交卷/调整表单页顶部嵌可折叠题目（`<details>`，KaTeX 渲染）。
+  做题时停在计时页，题目一直在——修「开始答题后看不到题目」。
+- 注意内联版 `_qlive()` 返回 `(block, text)` 二元组，仓库版返回 str；`_qpanel` 两者兼容。
