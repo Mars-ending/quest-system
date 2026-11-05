@@ -145,6 +145,220 @@ def _eval_start(qid):
 
 # ───────────────────────── 页面 ─────────────────────────
 
+def _md_to_html(text):
+    """迷你 Markdown：标题/列表/引用/代码围栏/粗斜体/行内码/链接/hr。
+    公式 $..$ 原样保留（转义后是纯文本），交给页面上的 KaTeX auto-render。"""
+    def _inline(x):
+        x = x.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        x = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", x)
+        x = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)", r"<i>\1</i>", x)
+        x = re.sub(r"`([^`]+)`", r"<code>\1</code>", x)
+        x = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", r'<a href="\2">\1</a>', x)
+        return x
+
+    out, para, code, buf = [], [], False, []
+    _open_list = [None]
+    lines = text.splitlines()
+
+    def close_list():
+        if _open_list[0]:
+            out.append("</%s>" % _open_list[0])
+            _open_list[0] = None
+
+    def flush():
+        if para:
+            out.append("<p>%s</p>" % _inline(" ".join(para)))
+            del para[:]
+
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
+        if ln.strip().startswith("```"):
+            flush()
+            if not code:
+                code = True
+            else:
+                out.append("<pre><code>%s</code></pre>"
+                           % "".join(l.replace("&", "&amp;").replace("<", "&lt;")
+                                     .replace(">", "&gt;") + "\n" for l in buf))
+                buf, code = [], False
+            i += 1
+            continue
+        if code:
+            buf.append(ln)
+            i += 1
+            continue
+        m = re.match(r"^(#{1,4})\s+(.*)", ln)
+        if m:
+            flush()
+            close_list()
+            lv = len(m.group(1))
+            out.append("<h%d>%s</h%d>" % (lv, _inline(m.group(2)), lv))
+            i += 1
+            continue
+        if re.match(r"^\s*[-*]\s+", ln):
+            flush()
+            close_list()
+            if not _open_list:
+                out.append("<ul>")
+                _open_list[0] = "ul"
+            out.append("<li>%s</li>" % _inline(re.sub(r"^\s*[-*]\s+", "", ln)))
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if not re.match(r"^\s*[-*]\s+", nxt):
+                close_list()
+            i += 1
+            continue
+        if re.match(r"^\s*\d+[.)、]\s+", ln):
+            flush()
+            close_list()
+            if not _open_list:
+                out.append("<ol>")
+                _open_list[0] = "ol"
+            out.append("<li>%s</li>" % _inline(re.sub(r"^\s*\d+[.)、]\s+", "", ln)))
+            nxt = lines[i + 1] if i + 1 < len(lines) else ""
+            if not re.match(r"^\s*\d+[.)、]\s+", nxt):
+                close_list()
+            i += 1
+            continue
+        if ln.strip() in ("---", "***", "___"):
+            flush()
+            close_list()
+            out.append("<hr>")
+            i += 1
+            continue
+        if ln.strip().startswith(">"):
+            flush()
+            close_list()
+            out.append("<blockquote>%s</blockquote>" % _inline(ln.strip().lstrip(">").strip()))
+            i += 1
+            continue
+        if not ln.strip():
+            flush()
+            i += 1
+            continue  # 列表保持打开：允许编号项之间夹空行
+        para.append(ln.strip())
+        i += 1
+    flush()
+    close_list()
+    if code and buf:
+        out.append("<pre><code>%s</code></pre>"
+                   % "".join(l.replace("&", "&amp;").replace("<", "&lt;")
+                             .replace(">", "&gt;") + "\n" for l in buf))
+    return "\n".join(out)
+
+
+def _hints_panel(blk):
+    """从题块解析 **提示** 段 → 逐层折叠面板。L1 摘要可见，L2/L3 点击展开。"""
+    m = re.search(r"\*\*提示\*\*[^\n]*\n\n((?:- \*\*L\d.*?\n)+)", blk or "", re.S)
+    if not m:
+        return ""
+    hints = re.findall(r"- \*\*(L\d[^*]*)\*\*(.*)", m.group(1))
+    if not hints:
+        return ""
+    items = []
+    for i, (head, body) in enumerate(hints):
+        head = head.strip()
+        body = body.strip()
+        first = (i == 0)  # L1 默认展开
+        items.append(
+            '<details class="hint"%s><summary>%s</summary>'
+            '<div class="hintbody">%s</div></details>'
+            % (" open" if first else "",
+               re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", esc(head[:70])),
+               _md_to_html(body)))
+    return ("<div class='hintwrap'><div class='hth'>💡 要提示吗？（先自己挣扎，一层不够再点下一层）</div>%s</div>"
+            % "".join(items))
+
+def _sublist(qid):
+    """某题的提交物列表（带查看链接）。"""
+    d = os.path.join(QUEST_HOME, "submissions", qid)
+    if not os.path.isdir(d):
+        return ""
+    items = sorted(fn for fn in os.listdir(d) if not fn.startswith("."))
+    if not items:
+        return ""
+    return "".join(
+        '<li><a href="sub/%s/%s">%s</a> <small>(%sB)</small></li>'
+        % (qid, quote(fn), esc(fn), os.path.getsize(os.path.join(d, fn)))
+        for fn in items)
+
+def _qpanel(full=True, qid=None):
+    """题目面板：<details> 可折叠；full=False 时只显示摘要行。"""
+    got = _qlive()
+    blk = got[0] if isinstance(got, tuple) else got
+    if not blk:
+        return "<div class='qbox'><summary>❓ 题目</summary><div class='qmini'>当前没有在架任务</div></div>"
+    qid = qid or blk.splitlines()[0].replace("## ", "").split(" · ")[0]
+    # 摘要 = 标题行 + 前 2 步
+    lines = [l for l in blk.splitlines() if l.strip()]
+    title = lines[0].replace("## ", "")
+    steps = [l for l in lines if re.match(r"^\d+\.", l.strip())]
+    acc = next((l for l in lines if l.startswith("**验收**")), "")
+    summ = esc(" · ".join(steps[0].strip()[:56].split("：", 1)[-1:] or [""])) if steps else ""
+    # 题面渲染：去掉块级元信息行（## 标题 / 状态 / 域 / 前置 / 用时 / 答案 / 验收 / 评语 / 提示段）
+    meta_pat = re.compile(
+        r"^## Q\d{3}.*$|^\*\*题目\*\*.*$|^- 状态[:：].*$|^- 域/节点[:：].*$|^- 前置[:：].*$|"
+        r"^- 用时[:：].*$|^- 答案[:：].*$|^- 验收[:：].*$|^- 评语[:：].*$|"
+        r"^\*\*提示\*\*.*$", re.M)
+    hints_m = re.search(r"\*\*提示\*\*[^\n]*\n\n(?:- \*\*L\d.*?\n)+", blk, re.S)
+    body_md = meta_pat.sub("", blk)
+    if hints_m:
+        body_md = body_md.replace(hints_m.group(0), "")
+    body_md = body_md.replace("**验收**：", "**验收**：").replace("**6h 口径**：", "**6h 口径**：").strip()
+    full_html = _md_to_html(body_md) if full else ""
+    extra = ("<div class='qmini'>↑ 完整题面（含验收与 6h 口径），做题时停在这页题目一直在<br>"
+             "<a href='./'>← 返回任务页</a> · <a href='do?op=accept_form&q=%s'>📥 交卷</a></div>" % qid) if full else ""
+    inner = (("<div class='qfull'>%s</div>" % full_html) if full else
+             "<div class='qmini'>%s …</div>" % esc(steps[0].strip()[:60]) if steps else "")
+    inner += _hints_panel(blk)
+    acc_html = ("<div class='qmini'><b>验收：</b>%s</div>" % esc(acc.replace("**验收**：", ""))) if acc and not full else ""
+    return ("<details class='qbox'%s><summary>%s</summary>%s%s%s</details>"
+            % (" open" if full else "", esc(title), inner, acc_html, extra))
+
+def _hints_panel(blk):
+    """从题块解析 **提示** 段 → 逐层折叠面板。L1 摘要可见，L2/L3 点击展开。"""
+    m = re.search(r"\*\*提示\*\*[^\n]*\n\n((?:- \*\*L\d.*?\n)+)", blk or "", re.S)
+    if not m:
+        return ""
+    hints = re.findall(r"- \*\*(L\d[^*]*)\*\*(.*)", m.group(1))
+    if not hints:
+        return ""
+    items = []
+    for i, (head, body) in enumerate(hints):
+        head = head.strip()
+        body = body.strip()
+        first = (i == 0)  # L1 默认展开
+        items.append(
+            '<details class="hint"%s><summary>%s</summary>'
+            '<div class="hintbody">%s</div></details>'
+            % (" open" if first else "",
+               re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", esc(head[:70])),
+               _md_to_html(body)))
+    return ("<div class='hintwrap'><div class='hth'>💡 要提示吗？（先自己挣扎，一层不够再点下一层）</div>%s</div>"
+            % "".join(items))
+
+
+def _sublist(qid):
+    """某题的提交物列表（带查看链接）。"""
+    d = os.path.join(QUEST_HOME, "submissions", qid)
+    if not os.path.isdir(d):
+        return ""
+    items = sorted(fn for fn in os.listdir(d) if not fn.startswith("."))
+    if not items:
+        return ""
+    return "".join(
+        '<li><a href="sub/%s/%s">%s</a> <small>(%sB)</small></li>'
+        % (qid, quote(fn), esc(fn), os.path.getsize(os.path.join(d, fn)))
+        for fn in items)
+
+
+def _quest_check(self):
+    if not check_auth(self.headers.get("Authorization")):
+        self._unauth()
+        return False
+    return True
+
+
 def _page_quest(msg=""):
     st = _qstate()
     live_block = _qlive()
@@ -181,7 +395,7 @@ def _page_quest(msg=""):
 <h1>Quest 任务系统</h1>
 <div class="sub">账本与提交都在本机 git 里，每次操作留痕</div>
 %s
-<div class="panel"><h2>当前任务</h2><pre style="white-space:pre-wrap;font-size:13px">%s</pre>
+<div class="panel"><h2>当前任务</h2>%s
 <p>
  <a class="btn" href="do?op=timer_start&q=%s">▶ 开始/继续计时</a>
  <a class="btn" href="do?op=timer_pause&q=%s">⏸ 暂停</a>
@@ -194,7 +408,8 @@ def _page_quest(msg=""):
 <tr><th>编号</th><th>题目</th><th>状态</th><th>域</th><th>发出</th><th>用时</th></tr>%s</table></div>
 <div class="panel"><h2>最近点评</h2><ul>%s</ul></div>
 """ % (("<div class='panel' style='border-color:#e80'><b>%s</b></div>" % esc(msg)) if msg else "",
-       esc(live_block or "（当前没有在架任务。）"),
+       (_qpanel(full=True) if live_block
+        else "<div class='qbox'><summary>❓ 题目</summary><div class='qmini'>当前没有在架任务</div></div>"),
        live_id, live_id, live_id, live_id, live_id, live_id, tstat,
        st.get("done", 0), st.get("pending", 0), st.get("skipped", 0), st.get("timer_lines", 0),
        hist, evals or "<li>暂无</li>")
