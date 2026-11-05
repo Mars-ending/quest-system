@@ -74,3 +74,28 @@ H.do_GET, H.do_POST = _q_do_GET, _q_do_POST
 - 题目面板 `_qpanel()`：计时页与交卷/调整表单页顶部嵌可折叠题目（`<details>`，KaTeX 渲染）。
   做题时停在计时页，题目一直在——修「开始答题后看不到题目」。
 - 注意内联版 `_qlive()` 返回 `(block, text)` 二元组，仓库版返回 str；`_qpanel` 两者兼容。
+
+## Markdown 交卷（2026-11-05）
+
+- 交卷表单的粘贴框带格式下拉（自动识别 / Markdown / 代码 / 纯文本）；文件按
+  `q00x-HHMMSS.md` 命名（修掉了旧版 `pasted-pasted-x.txt.txt` 双前缀 bug）。
+- 查看页 `/quest/sub/<qid>/<file>`：`.md` 由内置迷你渲染器转 HTML（标题/列表/引用/
+  围栏/粗斜体/行内码/链接），公式 `$..$` 原样保留交给 KaTeX；其他文件高亮 `<pre>`。
+- 任务总览新增「📂 我的提交」面板列出在架题的提交物。
+- KaTeX 注入改为 `shell(..., katex_base=...)` 显式按页面深度传：
+  quest 页族 `../`、eval `../../`、sub `../../../`；门户原生页不注入。
+  init 脚本 `katex/quest-katex-init.js`（readyState 守卫，defer 三件套：
+  katex.min.js → auto-render.min.js → init.js）。
+
+## Markdown 交卷（2026-11-05）
+
+- 交卷表单的粘贴框带格式下拉（自动识别 / Markdown / 代码 / 纯文本）；文件按
+  `q00x-HHMMSS.md` 命名（修掉了旧版 `pasted-pasted-x.txt.txt` 双前缀 bug）。
+- 查看页 `/quest/sub/<qid>/<file>`：`.md` 由内置迷你渲染器转 HTML（标题/列表/引用/
+  围栏/粗斜体/行内码/链接），公式 `$..$` 原样保留交给 KaTeX；其他文件高亮 `<pre>`。
+- 任务总览新增「📂 我的提交」面板列出在架题的提交物。
+- KaTeX 注入改为 `shell(..., katex_base=...)` 显式按页面深度传：
+  quest 页族 `../`、eval `../../`、sub `../../../`；门户原生页不注入。
+  init 脚本 `katex/quest-katex-init.js`（readyState 守卫；defer 顺序：
+  katex.min.js → auto-render.min.js → init.js，三者缺一不可——漏 auto-render
+  会导致 `renderMathInElement is not defined`）。
