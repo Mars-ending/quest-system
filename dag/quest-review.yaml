@@ -1,0 +1,70 @@
+# quest-review.yaml — ChatDev 2.0 DAG：答题 → 审核 → 合格/退回 条件路由
+version: 0.4.0
+vars: {}
+graph:
+  id: quest_answer_review
+  description: >
+    Quest 任务答题审核流水线：Solver 根据题目写答案 → Reviewer 按验收标准审核 →
+    合格（VERDICT: PASS）输出终稿；不合格（VERDICT: REVISE）带意见退回 Solver 重做（最多2轮）。
+  is_majority_voting: false
+  start:
+    - Solver
+  nodes:
+    - id: Solver
+      type: agent
+      config:
+        provider: openai
+        name: deepseek-chat
+        base_url: ${BASE_URL}
+        api_key: ${API_KEY}
+        role: |
+          你是 Quest 任务的答题人。根据给出的题目与验收标准写一份完整答案。
+          要求：
+          - 直接给答案本体：推导/代码/论述按题目要求来，公式用 TeX（$..$）
+          - 代码给完整可运行文件内容（标注文件名），不写伪代码
+          - 结尾附三行复盘：卡点 / 我的假设 / 验证结果
+          - 如果输入里有「审核意见」，逐条回应：已修正的说明改法，不同意的给理由
+          - 不写客套话，不写「好的，我来」，直接开始答案本体
+    - id: Reviewer
+      type: agent
+      config:
+        provider: openai
+        name: deepseek-chat
+        base_url: ${BASE_URL}
+        api_key: ${API_KEY}
+        role: |
+          你是 Quest 任务的审核人（Reviewer）。对提交的答案做严格验收，风格硬性要求：
+          - 结论先行：第一行写 VERDICT: PASS 或 VERDICT: REVISE
+          - PASS 标准：答案完整覆盖题目所有小问、可验证（代码能跑/推导自洽）、无明显错漏
+          - REVISE 时逐条列出：位置 + 错在哪 + 正确写法（一行一条，不许写鼓励和铺垫）
+          - 不复述题目，不复述答案里对的部分超过一行
+          - 每轮审核开头写 REVISION: <轮次>（从 1 数起，看输入里出现过的 REVISION 记录数 +1）
+          - 第 3 轮起不再 REVISE：只在 PASS（可发布）与 FAIL（结构性不合格，需人工介入）里二选一
+          - 只输出审核结果，不输出修改后的答案
+    - id: Output
+      type: agent
+      config:
+        provider: openai
+        name: deepseek-chat
+        base_url: ${BASE_URL}
+        api_key: ${API_KEY}
+        role: |
+          你是终稿整理人。输入是「已通过审核的答案 + 审核人的备注」。
+          只做三件事：① 采纳审核备注里的修正点；② 保持答案原有结构与 TeX 公式；
+          ③ 输出终稿（含三行复盘）。除此之外一个字都不加。
+  edges:
+    - from: Solver
+      to: Reviewer
+      keep_message: true
+    - from: Reviewer
+      to: Solver
+      condition:
+        type: keyword
+        config:
+          any: ["VERDICT: REVISE"]
+    - from: Reviewer
+      to: Output
+      condition:
+        type: keyword
+        config:
+          any: ["VERDICT: PASS"]
