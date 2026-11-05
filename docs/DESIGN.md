@@ -57,3 +57,11 @@
 
 - 目标机 Python 3.8（Ubuntu 20.04 系统投喂）：f-string 不嵌套同类引号、无 dict `|` 合并。
 - 全部提交前 `python3 -m py_compile` 过一遍。
+
+## 9. 公式渲染：自托管 KaTeX（2026-11-05 教训）
+
+- 题面公式必须写 TeX（`$...$` 行内 / `$$...$$` 独立），不用 Unicode 上标拼——`<pre>` 里的 `‖y−Xw‖²` 不像人排的。
+- 渲染用 KaTeX：**下载到本站**（`~/jetson-portal/katex/`，含 fonts 60 个文件），门户 shell() 注入 CSS + auto-render。**不能引 CDN**——站点 CSP 是 `script-src self`，外链 JS 会被自己的 nginx 头拦掉。
+- auto-render 配置：`$$...$$` display、`\(..\)` 与 `$..$` inline、`throwOnError:false`（渲染失败显示红色原文，不炸页面）。
+- 静态路由 `/katex/*` 用 realpath 夹死在 katex 目录内；CSP 的 `font-src self data:` 正好放行自托管 woff2。
+- 出题与点评 prompt 里都加了「公式一律 TeX」规则——源头上保证账本里的公式可渲染。
